@@ -18,12 +18,15 @@ function displayImage(canvasId, url) {
   j.load(url);
 }
 
-displayImage("c1", "j1.jpg");
-displayImage("c2", "j2.jpg");
-displayImage("c3", "j3.jpg");
+function loadImages() {
+  displayImage("c1", "j1.jpg");
+  displayImage("c2", "j2.jpg");
+  displayImage("c3", "j3.jpg");
+}
+
 </script>
 </head>
-<body>
+<body onload="loadImages()">
   <table>
     <tr><th>baseline</th><th>progressive</th><th>baseline (gray)</th></tr>
     <tr>

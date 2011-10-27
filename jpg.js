@@ -9,13 +9,13 @@
 //   in PostScript Level 2, Technical Note #5116
 //   (partners.adobe.com/public/developer/en/ps/sdk/5116.DCT_Filter.pdf)
 
-var JpegImage = (function() {
+var JpegImage = (function jpegImage() {
   "use strict";
 
   function constructor() {
   }
 
-  var iDCTTables = (function() {
+  var iDCTTables = (function initDCTTables() {
     var cosTables = [], i, j;
     for (i = 0; i < 8; i++) {
       cosTables.push(new Float32Array(8));
@@ -367,7 +367,7 @@ var JpegImage = (function() {
   }
 
   constructor.prototype = {
-    load: function(path) {
+    load: function load(path) {
       var xhr = new XMLHttpRequest();
       xhr.open("GET", path, true);
       xhr.responseType = "arraybuffer";
@@ -380,7 +380,7 @@ var JpegImage = (function() {
       }).bind(this);
       xhr.send(null);
     },
-    parse: function(data) {
+    parse: function parse(data) {
       var offset = 0, length = data.length;
       function readUint16() {
         var value = (data[offset] << 8) | data[offset + 1];
@@ -480,7 +480,7 @@ var JpegImage = (function() {
             // TODO APP1 - Exif
             if (fileMarker === 0xFFEE) {
               if (appData[0] === 0x41 && appData[1] === 0x64 && appData[2] === 0x6F &&
-                appData[3] === 0x62 && appData[4] === 65 && appData[5] === 0) { // 'Adobe\x00'
+                appData[3] === 0x62 && appData[4] === 0x65 && appData[5] === 0) { // 'Adobe\x00'
                 adobe = {
                   version: appData[6],
                   flags0: (appData[7] << 8) | appData[8],
@@ -601,15 +601,15 @@ var JpegImage = (function() {
         }
       }
     },
-    copyToImageData: function(imageData) {
-      var width = imageData.width, height = imageData.height;
+    getData: function getData(data, width, height) {
       var scaleX = this.width / width, scaleY = this.height / height;
 
       var component1, component2, component3, component4;
       var component1Line, component2Line, component3Line, component4Line;
       var x, y;
-      var offset = 0, data = imageData.data;
+      var offset = 0;
       var Y, Cb, Cr, K, C, M, Ye;
+      var directColors;
       switch (this.components.length) {
         case 1:
           component1 = this.components[0];
@@ -646,6 +646,10 @@ var JpegImage = (function() {
           }
           break;
         case 4:
+          if (!this.adobe)
+            throw 'Unsupported color mode (4 components)';
+
+          directColors = !this.adobe.transformCode;
           component1 = this.components[0];
           component2 = this.components[1];
           component3 = this.components[2];
@@ -656,14 +660,21 @@ var JpegImage = (function() {
             component3Line = component3.lines[0 | (y * component3.scaleY * scaleY)];
             component4Line = component4.lines[0 | (y * component4.scaleY * scaleY)];
             for (x = 0; x < width; x++) {
-              Y = component1Line[0 | (x * component1.scaleX * scaleX)];
-              Cb = component2Line[0 | (x * component2.scaleX * scaleX)];
-              Cr = component3Line[0 | (x * component3.scaleX * scaleX)];
-              K = component4Line[0 | (x * component4.scaleX * scaleX)];
+              if (directColors) {
+                C = component1Line[0 | (x * component1.scaleX * scaleX)];
+                M = component2Line[0 | (x * component2.scaleX * scaleX)];
+                Ye = component3Line[0 | (x * component3.scaleX * scaleX)];
+                K = component4Line[0 | (x * component4.scaleX * scaleX)];
+              } else {
+                Y = component1Line[0 | (x * component1.scaleX * scaleX)];
+                Cb = component2Line[0 | (x * component2.scaleX * scaleX)];
+                Cr = component3Line[0 | (x * component3.scaleX * scaleX)];
+                K = component4Line[0 | (x * component4.scaleX * scaleX)];
 
-              C = 255 - (Y + 1.402 * (Cr - 128));
-              M = 255 - (Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
-              Ye = 255 - (Y + 1.772 * (Cb - 128));
+                C = 255 - (Y + 1.402 * (Cr - 128));
+                M = 255 - (Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
+                Ye = 255 - (Y + 1.772 * (Cb - 128));
+              }
 
               data[offset++] = 255 - Math.min(255, C * (1 - K / 255) + K);
               data[offset++] = 255 - Math.min(255, M * (1 - K / 255) + K);
@@ -672,7 +683,12 @@ var JpegImage = (function() {
             }
           }
           break;
+        default:
+          throw 'Unsupported color mode';
       }
+    },
+    copyToImageData: function copyToImageData(imageData) {
+      this.getData(imageData.data, imageData.width, imageData.height);
     }
   };
 
