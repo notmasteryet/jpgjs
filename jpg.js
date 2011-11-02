@@ -602,6 +602,9 @@ var JpegImage = (function jpegImage() {
       }
     },
     getData: function getData(data, width, height) {
+      function clampTo8bit(a) {
+        return a < 0 ? 0 : a > 255 ? 255 : a;
+      }
       var scaleX = this.width / width, scaleY = this.height / height;
 
       var component1, component2, component3, component4;
@@ -671,9 +674,9 @@ var JpegImage = (function jpegImage() {
                 Cr = component3Line[0 | (x * component3.scaleX * scaleX)];
                 K = component4Line[0 | (x * component4.scaleX * scaleX)];
 
-                C = 255 - (Y + 1.402 * (Cr - 128));
-                M = 255 - (Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
-                Ye = 255 - (Y + 1.772 * (Cb - 128));
+                C = 255 - clampTo8bit(Y + 1.402 * (Cr - 128));
+                M = 255 - clampTo8bit(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
+                Ye = 255 - clampTo8bit(Y + 1.772 * (Cb - 128));
               }
 
               data[offset++] = 255 - Math.min(255, C * (1 - K / 255) + K);
