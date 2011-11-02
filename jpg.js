@@ -611,7 +611,7 @@ var JpegImage = (function jpegImage() {
       var component1Line, component2Line, component3Line, component4Line;
       var x, y;
       var offset = 0;
-      var Y, Cb, Cr, K, C, M, Ye;
+      var Y, Cb, Cr, K, C, M, Ye, R, G, B;
       var directColors;
       switch (this.components.length) {
         case 1:
@@ -629,6 +629,8 @@ var JpegImage = (function jpegImage() {
           }
           break;
         case 3:
+          directColors = this.adobe && !this.adobe.transformCode;
+
           component1 = this.components[0];
           component2 = this.components[1];
           component3 = this.components[2];
@@ -637,13 +639,23 @@ var JpegImage = (function jpegImage() {
             component2Line = component2.lines[0 | (y * component2.scaleY * scaleY)];
             component3Line = component3.lines[0 | (y * component3.scaleY * scaleY)];
             for (x = 0; x < width; x++) {
-              Y = component1Line[0 | (x * component1.scaleX * scaleX)];
-              Cb = component2Line[0 | (x * component2.scaleX * scaleX)];
-              Cr = component3Line[0 | (x * component3.scaleX * scaleX)];
+              if (directColors) {
+                R = component1Line[0 | (x * component1.scaleX * scaleX)];
+                G = component2Line[0 | (x * component2.scaleX * scaleX)];
+                B = component3Line[0 | (x * component3.scaleX * scaleX)];
+              } else {
+                Y = component1Line[0 | (x * component1.scaleX * scaleX)];
+                Cb = component2Line[0 | (x * component2.scaleX * scaleX)];
+                Cr = component3Line[0 | (x * component3.scaleX * scaleX)];
 
-              data[offset++] = Y + 1.402 * (Cr - 128);
-              data[offset++] = Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128);
-              data[offset++] = Y + 1.772 * (Cb - 128);
+                R = clampTo8bit(Y + 1.402 * (Cr - 128));
+                G = clampTo8bit(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
+                B = clampTo8bit(Y + 1.772 * (Cb - 128));
+              }
+
+              data[offset++] = R;
+              data[offset++] = G;
+              data[offset++] = B;
               data[offset++] = 255;
             }
           }
@@ -679,9 +691,9 @@ var JpegImage = (function jpegImage() {
                 Ye = 255 - clampTo8bit(Y + 1.772 * (Cb - 128));
               }
 
-              data[offset++] = 255 - Math.min(255, C * (1 - K / 255) + K);
-              data[offset++] = 255 - Math.min(255, M * (1 - K / 255) + K);
-              data[offset++] = 255 - Math.min(255, Ye * (1 - K / 255) + K);
+              data[offset++] = 255 - clampTo8bit(C * (1 - K / 255) + K);
+              data[offset++] = 255 - clampTo8bit(M * (1 - K / 255) + K);
+              data[offset++] = 255 - clampTo8bit(Ye * (1 - K / 255) + K);
               data[offset++] = 255;
             }
           }
