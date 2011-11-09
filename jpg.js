@@ -602,7 +602,7 @@ var JpegImage = (function jpegImage() {
         }
       }
     },
-    getData: function getData(data, width, height) {
+    getData: function getData(width, height) {
       function clampTo8bit(a) {
         return a < 0 ? 0 : a > 255 ? 255 : a;
       }
@@ -614,6 +614,8 @@ var JpegImage = (function jpegImage() {
       var offset = 0;
       var Y, Cb, Cr, K, C, M, Ye, R, G, B;
       var colorTransform;
+      var dataLength = width * height * this.components.length;
+      var data = new Uint8Array(dataLength);
       switch (this.components.length) {
         case 1:
           component1 = this.components[0];
@@ -709,6 +711,7 @@ var JpegImage = (function jpegImage() {
         default:
           throw 'Unsupported color mode';
       }
+      return data;
     },
     copyToImageData: function copyToImageData(imageData) {
       this.getData(imageData.data, imageData.width, imageData.height);
