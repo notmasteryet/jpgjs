@@ -12,7 +12,8 @@
 var JpegImage = (function jpegImage() {
   "use strict";
 
-  function constructor() {
+  function constructor(colorTransform) {
+    this.colorTransform = typeof colorTransform !== 'undefined' ? colorTransform : -1;
   }
 
   var iDCTTables = (function initDCTTables() {
@@ -601,7 +602,7 @@ var JpegImage = (function jpegImage() {
         }
       }
     },
-    getData: function getData(data, width, height) {
+    getData: function getData(width, height) {
       function clampTo8bit(a) {
         return a < 0 ? 0 : a > 255 ? 255 : a;
       }
@@ -612,7 +613,9 @@ var JpegImage = (function jpegImage() {
       var x, y;
       var offset = 0;
       var Y, Cb, Cr, K, C, M, Ye, R, G, B;
-      var directColors;
+      var colorTransform;
+      var dataLength = width * height * this.components.length;
+      var data = new Uint8Array(dataLength);
       switch (this.components.length) {
         case 1:
           component1 = this.components[0];
@@ -622,14 +625,17 @@ var JpegImage = (function jpegImage() {
               Y = component1Line[0 | (x * component1.scaleX * scaleX)];
 
               data[offset++] = Y;
-              data[offset++] = Y;
-              data[offset++] = Y;
-              data[offset++] = 255;
             }
           }
           break;
         case 3:
-          directColors = this.adobe && !this.adobe.transformCode;
+          // The default transform for three components is true
+          colorTransform = true;
+          // The adobe transform marker overrides any previous setting
+          if (this.adobe && this.adobe.transformCode)
+            colorTransform = true;
+          else if (typeof this.colorTransform != -1)
+            colorTransform = this.colorTransform == true;
 
           component1 = this.components[0];
           component2 = this.components[1];
@@ -639,7 +645,7 @@ var JpegImage = (function jpegImage() {
             component2Line = component2.lines[0 | (y * component2.scaleY * scaleY)];
             component3Line = component3.lines[0 | (y * component3.scaleY * scaleY)];
             for (x = 0; x < width; x++) {
-              if (directColors) {
+              if (!colorTransform) {
                 R = component1Line[0 | (x * component1.scaleX * scaleX)];
                 G = component2Line[0 | (x * component2.scaleX * scaleX)];
                 B = component3Line[0 | (x * component3.scaleX * scaleX)];
@@ -656,15 +662,20 @@ var JpegImage = (function jpegImage() {
               data[offset++] = R;
               data[offset++] = G;
               data[offset++] = B;
-              data[offset++] = 255;
             }
           }
           break;
         case 4:
           if (!this.adobe)
             throw 'Unsupported color mode (4 components)';
+          // The default transform for four components is false
+          colorTransform = false;
+          // The adobe transform marker overrides any previous setting
+          if (this.adobe && this.adobe.transformCode)
+            colorTransform = true;
+          else if (typeof this.colorTransform != -1)
+            colorTransform = this.colorTransform == true;
 
-          directColors = !this.adobe.transformCode;
           component1 = this.components[0];
           component2 = this.components[1];
           component3 = this.components[2];
@@ -675,7 +686,7 @@ var JpegImage = (function jpegImage() {
             component3Line = component3.lines[0 | (y * component3.scaleY * scaleY)];
             component4Line = component4.lines[0 | (y * component4.scaleY * scaleY)];
             for (x = 0; x < width; x++) {
-              if (directColors) {
+              if (!colorTransform) {
                 C = component1Line[0 | (x * component1.scaleX * scaleX)];
                 M = component2Line[0 | (x * component2.scaleX * scaleX)];
                 Ye = component3Line[0 | (x * component3.scaleX * scaleX)];
@@ -690,17 +701,17 @@ var JpegImage = (function jpegImage() {
                 M = 255 - clampTo8bit(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
                 Ye = 255 - clampTo8bit(Y + 1.772 * (Cb - 128));
               }
-
-              data[offset++] = 255 - clampTo8bit(C * (1 - K / 255) + K);
-              data[offset++] = 255 - clampTo8bit(M * (1 - K / 255) + K);
-              data[offset++] = 255 - clampTo8bit(Ye * (1 - K / 255) + K);
-              data[offset++] = 255;
+              data[offset++] = C;
+              data[offset++] = M;
+              data[offset++] = Ye;
+              data[offset++] = K;
             }
           }
           break;
         default:
           throw 'Unsupported color mode';
       }
+      return data;
     },
     copyToImageData: function copyToImageData(imageData) {
       this.getData(imageData.data, imageData.width, imageData.height);
