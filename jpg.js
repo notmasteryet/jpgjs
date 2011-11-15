@@ -12,8 +12,7 @@
 var JpegImage = (function jpegImage() {
   "use strict";
 
-  function constructor(colorTransform) {
-    this.colorTransform = typeof colorTransform !== 'undefined' ? colorTransform : -1;
+  function constructor() {
   }
 
   var iDCTTables = (function initDCTTables() {
@@ -634,8 +633,8 @@ var JpegImage = (function jpegImage() {
           // The adobe transform marker overrides any previous setting
           if (this.adobe && this.adobe.transformCode)
             colorTransform = true;
-          else if (typeof this.colorTransform != -1)
-            colorTransform = this.colorTransform == true;
+          else if (typeof this.colorTransform !== 'undefined')
+            colorTransform = !!this.colorTransform;
 
           component1 = this.components[0];
           component2 = this.components[1];
@@ -673,8 +672,8 @@ var JpegImage = (function jpegImage() {
           // The adobe transform marker overrides any previous setting
           if (this.adobe && this.adobe.transformCode)
             colorTransform = true;
-          else if (typeof this.colorTransform != -1)
-            colorTransform = this.colorTransform == true;
+          else if (typeof this.colorTransform !== 'undefined')
+            colorTransform = !!this.colorTransform;
 
           component1 = this.components[0];
           component2 = this.components[1];
@@ -714,7 +713,60 @@ var JpegImage = (function jpegImage() {
       return data;
     },
     copyToImageData: function copyToImageData(imageData) {
-      this.getData(imageData.data, imageData.width, imageData.height);
+      var width = imageData.width, height = imageData.height;
+      var imageDataArray = imageData.data;
+      var data = this.getData(width, height);
+      var i = 0, j = 0, x, y;
+      var Y, K, C, M, R, G, B;
+      switch (this.components.length) {
+        case 1:
+          for (y = 0; y < height; y++) {
+            for (x = 0; x < width; x++) {
+              Y = data[i++];
+
+              imageDataArray[j++] = Y;
+              imageDataArray[j++] = Y;
+              imageDataArray[j++] = Y;
+              imageDataArray[j++] = 255;
+            }
+          }
+          break;
+        case 3:
+          for (y = 0; y < height; y++) {
+            for (x = 0; x < width; x++) {
+              R = data[i++];
+              G = data[i++];
+              B = data[i++];
+
+              imageDataArray[j++] = R;
+              imageDataArray[j++] = G;
+              imageDataArray[j++] = B;
+              imageDataArray[j++] = 255;
+            }
+          }
+          break;
+        case 4:
+          for (y = 0; y < height; y++) {
+            for (x = 0; x < width; x++) {
+              C = data[i++];
+              M = data[i++];
+              Y = data[i++];
+              K = data[i++];
+
+              R = 255 - clampTo8bit(C * (1 - K / 255) + K);
+              G = 255 - clampTo8bit(M * (1 - K / 255) + K);
+              B = 255 - clampTo8bit(Y * (1 - K / 255) + K);
+
+              imageDataArray[j++] = R;
+              imageDataArray[j++] = G;
+              imageDataArray[j++] = B;
+              imageDataArray[j++] = 255;
+            }
+          }
+          break;
+        default:
+          throw 'Unsupported color mode';
+      }
     }
   };
 
