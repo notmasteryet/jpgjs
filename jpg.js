@@ -326,7 +326,7 @@ var JpegImage = (function jpegImage() {
     var samplesPerLine = blocksPerLine << 3;
     var R = new Int32Array(64), r = new Uint8Array(64);
 
-    function quantizeAndInverse(zz) {
+    function quantizeAndInverse(zz, r, R) {
       var qt = component.quantizationTable;
       var precisionShift = frame.precision - 8;
       var i, j;
@@ -352,7 +352,7 @@ var JpegImage = (function jpegImage() {
       for (i = 0; i < 8; i++)
         lines.push(new Uint8Array(samplesPerLine));
       for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
-        quantizeAndInverse(component.blocks[blockRow][blockCol]);
+        quantizeAndInverse(component.blocks[blockRow][blockCol], r, R);
 
         var offset = 0, sample = blockCol << 3;
         for (j = 0; j < 8; j++) {
