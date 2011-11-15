@@ -324,16 +324,16 @@ var JpegImage = (function jpegImage() {
     var blocksPerLine = component.blocksPerLine;
     var blocksPerColumn = component.blocksPerColumn;
     var samplesPerLine = blocksPerLine << 3;
+    var R = new Int32Array(64), r = new Uint8Array(64);
 
     function quantizeAndInverse(zz) {
       var qt = component.quantizationTable;
       var precisionShift = frame.precision - 8;
+      var i, j;
 
-      var R = new Int32Array(64);
       for (i = 0; i < 64; i++)
         R[i] = zz[i] * qt[i];
 
-      var r = new Uint8Array(64), i, j;
       for (i = 0; i < 64; i++) {
         var sum = 0;
         var table = iDCTTables[i];
@@ -344,7 +344,6 @@ var JpegImage = (function jpegImage() {
         // clamping
         r[i] = sample < 0 ? 0 : sample > 0xFF ? 0xFF : sample;
       }
-      return r;
     }
 
     var i, j;
@@ -353,7 +352,7 @@ var JpegImage = (function jpegImage() {
       for (i = 0; i < 8; i++)
         lines.push(new Uint8Array(samplesPerLine));
       for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
-        var r = quantizeAndInverse(component.blocks[blockRow][blockCol]);
+        quantizeAndInverse(component.blocks[blockRow][blockCol]);
 
         var offset = 0, sample = blockCol << 3;
         for (j = 0; j < 8; j++) {
