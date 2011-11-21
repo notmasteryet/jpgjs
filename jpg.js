@@ -11,42 +11,35 @@
 
 var JpegImage = (function jpegImage() {
   "use strict";
+  var dctZigZag = new Int32Array([
+     0,
+     1,  8,
+    16,  9,  2,
+     3, 10, 17, 24,
+    32, 25, 18, 11, 4,
+     5, 12, 19, 26, 33, 40,
+    48, 41, 34, 27, 20, 13,  6,
+     7, 14, 21, 28, 35, 42, 49, 56,
+    57, 50, 43, 36, 29, 22, 15,
+    23, 30, 37, 44, 51, 58,
+    59, 52, 45, 38, 31,
+    39, 46, 53, 60,
+    61, 54, 47,
+    55, 62,
+    63
+  ]);
+
+  var dctCos1  =  4017   // cos(pi/16)
+  var dctSin1  =   799   // sin(pi/16)
+  var dctCos3  =  3406   // cos(3*pi/16)
+  var dctSin3  =  2276   // sin(3*pi/16)
+  var dctCos6  =  1567   // cos(6*pi/16)
+  var dctSin6  =  3784   // sin(6*pi/16)
+  var dctSqrt2 =  5793   // sqrt(2)
+  var dctSqrt1d2 = 2896  // sqrt(2) / 2
 
   function constructor() {
   }
-
-  var iDCTTables = (function initDCTTables() {
-    var cosTables = [], i, j;
-    for (i = 0; i < 8; i++) {
-      cosTables.push(new Float32Array(8));
-      for (j = 0; j < 8; j++)
-        cosTables[i][j] = Math.cos((2 * i + 1) * j * Math.PI / 16) *
-          (j > 0 ? 1 : 1/Math.sqrt(2));
-    }
-
-    var zzTransform = new Int32Array([
-      0, 1, 5, 6, 14, 15, 27, 28, 2, 4, 7, 13, 16, 26, 29, 42, 3, 8, 12,
-      17, 25, 30, 41, 43, 9, 11, 18, 24, 31, 40, 44, 53, 10, 19, 23, 32,
-      39, 45, 52, 54, 20, 22, 33, 38, 46, 51, 55, 60, 21, 34, 37, 47,
-      50, 56, 59, 61, 35, 36, 48, 49, 57, 58, 62, 63]);
-
-    var x, y, u, v;
-    var tables = [];
-    for (y = 0; y < 8; y++) {
-      var cosTable_y = cosTables[y];
-      for (x = 0; x < 8; x++) {
-        var cosTable_x = cosTables[x];
-        var table = new Float32Array(64);
-        i = 0;
-        for (v = 0; v < 8; v++) {
-          for (u = 0; u < 8; u++)
-            table[zzTransform[i++]] = cosTable_x[u] * cosTable_y[v];
-        }
-        tables.push(table);
-      }
-    }
-    return tables;
-  })();
 
   function buildHuffmanTable(codeLengths, values) {
     var k = 0, code = [], i, j, length = 16;
@@ -150,7 +143,8 @@ var JpegImage = (function jpegImage() {
           continue;
         }
         k += r;
-        zz[k] = receiveAndExtend(s);
+        var z = dctZigZag[k];
+        zz[z] = receiveAndExtend(s);
         k++;
       }
     }
@@ -181,7 +175,8 @@ var JpegImage = (function jpegImage() {
           continue;
         }
         k += r;
-        zz[k] = receiveAndExtend(s) * (1 << successive);
+        var z = dctZigZag[k];
+        zz[z] = receiveAndExtend(s) * (1 << successive);
         k++;
       }
     }
@@ -189,6 +184,7 @@ var JpegImage = (function jpegImage() {
     function decodeACSuccessive(component, zz) {
       var k = spectralStart, e = spectralEnd, r = 0;
       while (k <= e) {
+        var z = dctZigZag[k];
         switch (successiveACState) {
         case 0: // initial state
           var rs = decodeHuffman(component.huffmanTableAC);
@@ -210,8 +206,8 @@ var JpegImage = (function jpegImage() {
           continue;
         case 1: // skipping r zero items
         case 2:
-          if (zz[k])
-            zz[k] += (readBit() << successive);
+          if (zz[z])
+            zz[z] += (readBit() << successive);
           else {
             r--;
             if (r === 0)
@@ -219,16 +215,16 @@ var JpegImage = (function jpegImage() {
           }
           break;
         case 3: // set value for a zero item
-          if (zz[k])
-            zz[k] += (readBit() << successive);
+          if (zz[z])
+            zz[z] += (readBit() << successive);
           else {
-            zz[k] = successiveACNextValue << successive;
+            zz[z] = successiveACNextValue << successive;
             successiveACState = 0;
           }
           break;
         case 4: // eob
-          if (zz[k])
-            zz[k] += (readBit() << successive);
+          if (zz[z])
+            zz[z] += (readBit() << successive);
           break;
         }
         k++;
@@ -326,23 +322,163 @@ var JpegImage = (function jpegImage() {
     var samplesPerLine = blocksPerLine << 3;
     var R = new Int32Array(64), r = new Uint8Array(64);
 
-    function quantizeAndInverse(zz, r, R) {
+    // A port of poppler's IDCT method which in turn is taken from:
+    //   Christoph Loeffler, Adriaan Ligtenberg, George S. Moschytz,
+    //   "Practical Fast 1-D DCT Algorithms with 11 Multiplications",
+    //   IEEE Intl. Conf. on Acoustics, Speech & Signal Processing, 1989,
+    //   988-991.
+    function quantizeAndInverse(zz, dataOut, dataIn) {
       var qt = component.quantizationTable;
-      var precisionShift = frame.precision - 8;
-      var i, j;
+      var v0, v1, v2, v3, v4, v5, v6, v7, t;
+      var p = dataIn;
+      var i;
 
+      // dequant
       for (i = 0; i < 64; i++)
-        R[i] = zz[i] * qt[i];
+        p[i] = zz[i] * qt[i];
 
-      for (i = 0; i < 64; i++) {
-        var sum = 0;
-        var table = iDCTTables[i];
-        for (j = 0; j < 64; j++)
-          sum += table[j] * R[j];
-        // TODO loosing precision?
-        var sample = 128 + ((sum / 4) >> precisionShift);
-        // clamping
-        r[i] = sample < 0 ? 0 : sample > 0xFF ? 0xFF : sample;
+      // inverse DCT on rows
+      for (i = 0; i < 8; ++i) {
+        var row = 8 * i;
+
+        // check for all-zero AC coefficients
+        if (p[1 + row] == 0 && p[2 + row] == 0 && p[3 + row] == 0 &&
+            p[4 + row] == 0 && p[5 + row] == 0 && p[6 + row] == 0 &&
+            p[7 + row] == 0) {
+          t = (dctSqrt2 * p[0 + row] + 512) >> 10;
+          p[0 + row] = t;
+          p[1 + row] = t;
+          p[2 + row] = t;
+          p[3 + row] = t;
+          p[4 + row] = t;
+          p[5 + row] = t;
+          p[6 + row] = t;
+          p[7 + row] = t;
+          continue;
+        }
+
+        // stage 4
+        v0 = (dctSqrt2 * p[0 + row] + 128) >> 8;
+        v1 = (dctSqrt2 * p[4 + row] + 128) >> 8;
+        v2 = p[2 + row];
+        v3 = p[6 + row];
+        v4 = (dctSqrt1d2 * (p[1 + row] - p[7 + row]) + 128) >> 8;
+        v7 = (dctSqrt1d2 * (p[1 + row] + p[7 + row]) + 128) >> 8;
+        v5 = p[3 + row] << 4;
+        v6 = p[5 + row] << 4;
+
+        // stage 3
+        t = (v0 - v1+ 1) >> 1;
+        v0 = (v0 + v1 + 1) >> 1;
+        v1 = t;
+        t = (v2 * dctSin6 + v3 * dctCos6 + 128) >> 8;
+        v2 = (v2 * dctCos6 - v3 * dctSin6 + 128) >> 8;
+        v3 = t;
+        t = (v4 - v6 + 1) >> 1;
+        v4 = (v4 + v6 + 1) >> 1;
+        v6 = t;
+        t = (v7 + v5 + 1) >> 1;
+        v5 = (v7 - v5 + 1) >> 1;
+        v7 = t;
+
+        // stage 2
+        t = (v0 - v3 + 1) >> 1;
+        v0 = (v0 + v3 + 1) >> 1;
+        v3 = t;
+        t = (v1 - v2 + 1) >> 1;
+        v1 = (v1 + v2 + 1) >> 1;
+        v2 = t;
+        t = (v4 * dctSin3 + v7 * dctCos3 + 2048) >> 12;
+        v4 = (v4 * dctCos3 - v7 * dctSin3 + 2048) >> 12;
+        v7 = t;
+        t = (v5 * dctSin1 + v6 * dctCos1 + 2048) >> 12;
+        v5 = (v5 * dctCos1 - v6 * dctSin1 + 2048) >> 12;
+        v6 = t;
+
+        // stage 1
+        p[0 + row] = v0 + v7;
+        p[7 + row] = v0 - v7;
+        p[1 + row] = v1 + v6;
+        p[6 + row] = v1 - v6;
+        p[2 + row] = v2 + v5;
+        p[5 + row] = v2 - v5;
+        p[3 + row] = v3 + v4;
+        p[4 + row] = v3 - v4;
+      }
+
+      // inverse DCT on columns
+      for (i = 0; i < 8; ++i) {
+        var col = i;
+
+        // check for all-zero AC coefficients
+        if (p[1*8 + col] == 0 && p[2*8 + col] == 0 && p[3*8 + col] == 0 &&
+            p[4*8 + col] == 0 && p[5*8 + col] == 0 && p[6*8 + col] == 0 &&
+            p[7*8 + col] == 0) {
+          t = (dctSqrt2 * dataIn[i+0] + 8192) >> 14;
+          p[0*8 + col] = t;
+          p[1*8 + col] = t;
+          p[2*8 + col] = t;
+          p[3*8 + col] = t;
+          p[4*8 + col] = t;
+          p[5*8 + col] = t;
+          p[6*8 + col] = t;
+          p[7*8 + col] = t;
+          continue;
+        }
+
+        // stage 4
+        v0 = (dctSqrt2 * p[0*8 + col] + 2048) >> 12;
+        v1 = (dctSqrt2 * p[4*8 + col] + 2048) >> 12;
+        v2 = p[2*8 + col];
+        v3 = p[6*8 + col];
+        v4 = (dctSqrt1d2 * (p[1*8 + col] - p[7*8 + col]) + 2048) >> 12;
+        v7 = (dctSqrt1d2 * (p[1*8 + col] + p[7*8 + col]) + 2048) >> 12;
+        v5 = p[3*8 + col];
+        v6 = p[5*8 + col];
+
+        // stage 3
+        t = (v0 - v1 + 1) >> 1;
+        v0 = (v0 + v1 + 1) >> 1;
+        v1 = t;
+        t = (v2 * dctSin6 + v3 * dctCos6 + 2048) >> 12;
+        v2 = (v2 * dctCos6 - v3 * dctSin6 + 2048) >> 12;
+        v3 = t;
+        t = (v4 - v6 + 1) >> 1;
+        v4 = (v4 + v6 + 1) >> 1;
+        v6 = t;
+        t = (v7 + v5 + 1) >> 1;
+        v5 = (v7 - v5 + 1) >> 1;
+        v7 = t;
+
+        // stage 2
+        t = (v0 - v3 + 1) >> 1;
+        v0 = (v0 + v3 + 1) >> 1;
+        v3 = t;
+        t = (v1 - v2 + 1) >> 1;
+        v1 = (v1 + v2 + 1) >> 1;
+        v2 = t;
+        t = (v4 * dctSin3 + v7 * dctCos3 + 2048) >> 12;
+        v4 = (v4 * dctCos3 - v7 * dctSin3 + 2048) >> 12;
+        v7 = t;
+        t = (v5 * dctSin1 + v6 * dctCos1 + 2048) >> 12;
+        v5 = (v5 * dctCos1 - v6 * dctSin1 + 2048) >> 12;
+        v6 = t;
+
+        // stage 1
+        p[0*8 + col] = v0 + v7;
+        p[7*8 + col] = v0 - v7;
+        p[1*8 + col] = v1 + v6;
+        p[6*8 + col] = v1 - v6;
+        p[2*8 + col] = v2 + v5;
+        p[5*8 + col] = v2 - v5;
+        p[3*8 + col] = v3 + v4;
+        p[4*8 + col] = v3 - v4;
+      }
+
+      // convert to 8-bit integers
+      for (i = 0; i < 64; ++i) {
+        var sample = 128 + ((p[i] + 8) >> 4);
+        dataOut[i] = sample < 0 ? 0 : sample > 0xFF ? 0xFF : sample;
       }
     }
 
@@ -496,8 +632,10 @@ var JpegImage = (function jpegImage() {
               var quantizationTableSpec = data[offset++];
               var tableData = new Int32Array(64);
               if ((quantizationTableSpec >> 4) === 0) { // 8 bit values
-                for (j = 0; j < 64; j++)
-                  tableData[j] = data[offset++];
+                for (j = 0; j < 64; j++) {
+                  var z = dctZigZag[j];
+                  tableData[z] = data[offset++];
+                }
               } else if ((quantizationTableSpec >> 4) === 1) { //16 bit
                   tableData[j] = readUint16();
               } else
