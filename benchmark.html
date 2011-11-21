@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="jpg.js"></script>
+<script>
+
+function Benchmark(config) {
+  this.config = config;
+  this.imageIndex = 0;
+  this.times = [];
+}
+Benchmark.prototype.start = function() {
+  console.log('Running ' + this.config.samples + ' times' + 
+              ' on ' + this.config.images.length + ' images.');
+  this.nextImage();
+}
+Benchmark.prototype.nextImage = function() {
+  if (this.imageIndex >= this.config.images.length) {
+    this.finish();
+    return;
+  }
+  var times = [];
+  var path = this.config.images[this.imageIndex];
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", path, true);
+  xhr.responseType = "arraybuffer";
+  xhr.onload = (function() {
+    // TODO catch parse error
+    var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
+    for (var i = 0; i < this.config.samples; i++) {
+      times.push(Date.now());
+      var j = new JpegImage();
+      j.parse(data);
+      times.push(Date.now());
+    }
+    this.times.push(times);
+    this.displayImage(j);
+    this.imageIndex++;
+    this.nextImage();
+  }).bind(this);
+  xhr.send(null);
+}
+Benchmark.prototype.displayImage = function(j) {
+  var canvases = document.getElementById('canvases');
+  var wrapper = document.createElement('span');
+  wrapper.innerHTML = '<span>' + this.config.images[this.imageIndex] + '</span>';
+  var c = document.createElement('canvas');
+  wrapper.appendChild(c);
+  canvases.appendChild(wrapper);
+  c.width = j.width;
+  c.height = j.height;
+  var ctx = c.getContext("2d");
+  var d = ctx.getImageData(0,0,j.width,j.height);
+  j.copyToImageData(d);
+  ctx.putImageData(d, 0, 0);
+}
+Benchmark.prototype.finish = function() {
+  console.log('Finished');
+  var averages = [];
+  var avgSum = 0;
+  for (var i = 0; i < this.times.length; i++) {
+    var times = this.times[i];
+    var sum = 0;
+    for (var j = 0; j < times.length; j += 2) {
+      var took = times[j + 1] - times[j];
+      sum += took;
+    }
+    var average = (sum / (times.length / 2));
+    avgSum += average;
+    console.log("Average: " + average.toFixed(2) + ' ms');
+    averages.push(average);
+  }
+  console.log("Overall average: " + (avgSum / this.times.length).toFixed(2) + ' ms');
+}
+
+function go() {
+  var config = {
+    images: [
+      'j1.jpg',
+      'j2.jpg',
+      'j3.jpg'
+    ],
+    samples: 50
+  };
+  var b = new Benchmark(config);
+  b.start();
+}
+
+</script>
+</head>
+<body onload="go()">
+  <div id="canvases">
+  </div>
+</body>
+</html>
