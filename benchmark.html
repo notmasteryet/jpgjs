@@ -3,7 +3,6 @@
 <head>
 <script src="jpg.js"></script>
 <script>
-
 function Benchmark(config) {
   this.config = config;
   this.imageIndex = 0;
@@ -43,10 +42,13 @@ Benchmark.prototype.nextImage = function() {
 Benchmark.prototype.displayImage = function(j) {
   var canvases = document.getElementById('canvases');
   var wrapper = document.createElement('span');
-  wrapper.innerHTML = '<span>' + this.config.images[this.imageIndex] + '</span>';
+  wrapper.innerHTML = '<h1>' + this.config.images[this.imageIndex] + '</h1>';
   var c = document.createElement('canvas');
   wrapper.appendChild(c);
+  var br = document.createElement('br');
+  wrapper.appendChild(br);
   canvases.appendChild(wrapper);
+
   c.width = j.width;
   c.height = j.height;
   var ctx = c.getContext("2d");
