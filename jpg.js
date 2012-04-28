@@ -637,7 +637,10 @@ var JpegImage = (function jpegImage() {
                   tableData[z] = data[offset++];
                 }
               } else if ((quantizationTableSpec >> 4) === 1) { //16 bit
-                  tableData[j] = readUint16();
+                for (j = 0; j < 64; j++) {
+                  var z = dctZigZag[j];
+                  tableData[z] = readUint16();
+                }
               } else
                 throw "DQT: invalid table spec";
               quantizationTables[quantizationTableSpec & 15] = tableData;
