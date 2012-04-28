@@ -655,7 +655,8 @@ var JpegImage = (function jpegImage() {
             frame.precision = data[offset++];
             frame.scanLines = readUint16();
             frame.samplesPerLine = readUint16();
-            frame.components = [];
+            frame.components = {};
+            frame.componentsOrder = [];
             var componentsCount = data[offset++], componentId;
             var maxH = 0, maxV = 0;
             for (i = 0; i < componentsCount; i++) {
@@ -663,6 +664,7 @@ var JpegImage = (function jpegImage() {
               var h = data[offset + 1] >> 4;
               var v = data[offset + 1] & 15;
               var qId = data[offset + 2];
+              frame.componentsOrder.push(componentId);
               frame.components[componentId] = {
                 h: h,
                 v: v,
@@ -731,14 +733,13 @@ var JpegImage = (function jpegImage() {
       this.jfif = jfif;
       this.adobe = adobe;
       this.components = [];
-      for (var id in frame.components) {
-        if (frame.components.hasOwnProperty(id)) {
-          this.components.push({
-            lines: buildComponentData(frame, frame.components[id]),
-            scaleX: frame.components[id].h / frame.maxH,
-            scaleY: frame.components[id].v / frame.maxV
-          });
-        }
+      for (var i = 0; i < frame.componentsOrder.length; i++) {
+        var component = frame.components[frame.componentsOrder[i]];
+        this.components.push({
+          lines: buildComponentData(frame, component),
+          scaleX: component.h / frame.maxH,
+          scaleY: component.v / frame.maxV
+        });
       }
     },
     getData: function getData(width, height) {
