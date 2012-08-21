@@ -1,4 +1,4 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 /*
    Copyright 2011 notmasteryet
@@ -24,8 +24,10 @@
 //   in PostScript Level 2, Technical Note #5116
 //   (partners.adobe.com/public/developer/en/ps/sdk/5116.DCT_Filter.pdf)
 
-var JpegImage = (function jpegImage() {
+(function (glob, exports) {
   "use strict";
+
+exports.JpegImage = (function () {
   var dctZigZag = new Int32Array([
      0,
      1,  8,
@@ -44,16 +46,16 @@ var JpegImage = (function jpegImage() {
     63
   ]);
 
-  var dctCos1  =  4017   // cos(pi/16)
-  var dctSin1  =   799   // sin(pi/16)
-  var dctCos3  =  3406   // cos(3*pi/16)
-  var dctSin3  =  2276   // sin(3*pi/16)
-  var dctCos6  =  1567   // cos(6*pi/16)
-  var dctSin6  =  3784   // sin(6*pi/16)
-  var dctSqrt2 =  5793   // sqrt(2)
-  var dctSqrt1d2 = 2896  // sqrt(2) / 2
+  var dctCos1  =  4017;   // cos(pi/16)
+  var dctSin1  =   799;   // sin(pi/16)
+  var dctCos3  =  3406;   // cos(3*pi/16)
+  var dctSin3  =  2276;   // sin(3*pi/16)
+  var dctCos6  =  1567;   // cos(6*pi/16)
+  var dctSin6  =  3784;   // sin(6*pi/16)
+  var dctSqrt2 =  5793;   // sqrt(2)
+  var dctSqrt1d2 = 2896;  // sqrt(2) / 2
 
-  function constructor() {
+  function JpegImage() {
   }
 
   function buildHuffmanTable(codeLengths, values) {
@@ -203,7 +205,8 @@ var JpegImage = (function jpegImage() {
         switch (successiveACState) {
         case 0: // initial state
           var rs = decodeHuffman(component.huffmanTableAC);
-          var s = rs & 15, r = rs >> 4;
+          var s = rs & 15;
+          r = rs >> 4;
           if (s === 0) {
             if (r < 15) {
               eobrun = receive(r) + (1 << r);
@@ -516,7 +519,7 @@ var JpegImage = (function jpegImage() {
     return lines;
   }
 
-  constructor.prototype = {
+  JpegImage.prototype = {
     load: function load(path) {
       var xhr = new XMLHttpRequest();
       xhr.open("GET", path, true);
@@ -926,5 +929,8 @@ var JpegImage = (function jpegImage() {
     }
   };
 
-  return constructor;
+  return JpegImage;
 })();
+
+// Export to Node.js module exports or to global object (i.e. window):
+}(this, this.exports ? this.exports : this));

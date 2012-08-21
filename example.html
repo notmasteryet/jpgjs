@@ -3,8 +3,16 @@
    - http://creativecommons.org/publicdomain/zero/1.0/ -->
 <html>
 <head>
+<script>
+  if (window.location.hash.replace(/^#/,'') === 'nodejs') {
+    /* Test Node.js-like environment in browser */
+    window.exports = {};
+  }
+</script>
 <script src="jpg.js"></script>
 <script>
+(function () {
+var JpegImage = (window.exports ? window.exports.JpegImage : window.JpegImage);
 
 function displayImage(canvasId, url) {
   var j = new JpegImage();
@@ -26,6 +34,8 @@ function loadImages() {
   displayImage("c3", "j3.jpg");
 }
 
+window.loadImages = loadImages;
+}());
 </script>
 </head>
 <body onload="loadImages()">
