@@ -521,13 +521,14 @@ var JpegImage = (function jpegImage() {
       var xhr = new XMLHttpRequest();
       xhr.open("GET", path, true);
       xhr.responseType = "arraybuffer";
-      xhr.onload = (function() {
+      var self = this;
+      xhr.onload = function() {
         // TODO catch parse error
         var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
-        this.parse(data);
-        if (this.onload)
-          this.onload();
-      }).bind(this);
+        self.parse(data);
+        if (self.onload)
+          self.onload();
+      }
       xhr.send(null);
     },
     parse: function parse(data) {
