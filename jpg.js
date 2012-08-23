@@ -627,8 +627,9 @@ var JpegImage = (function jpegImage() {
             break;
 
           case 0xFFDB: // DQT (Define Quantization Tables)
-            var quantizationTableCount = Math.floor((readUint16() - 2) / 65);
-            for (i = 0; i < quantizationTableCount; i++) {
+            var quantizationTablesLength = readUint16();
+            var quantizationTablesEnd = quantizationTablesLength + offset - 2;
+            while (offset < quantizationTablesEnd) {
               var quantizationTableSpec = data[offset++];
               var tableData = new Int32Array(64);
               if ((quantizationTableSpec >> 4) === 0) { // 8 bit values
@@ -716,6 +717,13 @@ var JpegImage = (function jpegImage() {
             offset += processed;
             break;
           default:
+            if (data[offset - 3] == 0xFF &&
+                data[offset - 2] >= 0xC0 && data[offset - 2] <= 0xFE) {
+              // could be incorrect encoding -- last 0xFF byte of the previous
+              // block was eaten by the encoder
+              offset -= 3;
+              break;
+            }
             throw "unknown JPEG marker " + fileMarker.toString(16);
         }
         fileMarker = readUint16();
