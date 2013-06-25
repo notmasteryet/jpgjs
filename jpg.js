@@ -664,9 +664,11 @@ var JpegImage = (function jpegImage() {
             break;
 
           case 0xFFC0: // SOF0 (Start of Frame, Baseline DCT)
+          case 0xFFC1: // SOF1 (Start of Frame, Extended DCT)
           case 0xFFC2: // SOF2 (Start of Frame, Progressive DCT)
             readUint16(); // skip data length
             frame = {};
+            frame.extended = (fileMarker === 0xFFC1);
             frame.progressive = (fileMarker === 0xFFC2);
             frame.precision = data[offset++];
             frame.scanLines = readUint16();
