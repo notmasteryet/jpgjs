@@ -29,10 +29,10 @@ Benchmark.prototype.nextImage = function() {
     // TODO catch parse error
     var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
     for (var i = 0; i < this.config.samples; i++) {
-      times.push(Date.now());
+      times.push(performance.now());
       var j = new JpegImage();
       j.parse(data);
-      times.push(Date.now());
+      times.push(performance.now());
     }
     this.times.push(times);
     this.displayImage(j);
