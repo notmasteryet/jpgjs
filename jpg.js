@@ -777,7 +777,7 @@ var JpegImage = (function jpegImage() {
       var offset = 0;
       var Y, Cb, Cr, K, C, M, Ye, R, G, B;
       var colorTransform;
-      var numComponents = this.components.length; 
+      var numComponents = this.components.length;
       var dataLength = width * height * numComponents;
       var data = new Uint8Array(dataLength);
 
@@ -795,7 +795,7 @@ var JpegImage = (function jpegImage() {
           }
         }
       }
-      
+
       // ... then transform colors, if necessary
       switch (numComponents) {
         case 1: case 2: break;
