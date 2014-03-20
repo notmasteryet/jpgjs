@@ -532,19 +532,22 @@ var JpegImage = (function jpegImage() {
       }).bind(this);
       xhr.send(null);
     },
+
     parse: function parse(data) {
-      var offset = 0, length = data.length;
+
       function readUint16() {
         var value = (data[offset] << 8) | data[offset + 1];
         offset += 2;
         return value;
       }
+
       function readDataBlock() {
         var length = readUint16();
         var array = data.subarray(offset, offset + length - 2);
         offset += array.length;
         return array;
       }
+
       function prepareComponents(frame) {
         var maxH = 0, maxV = 0;
         var component, componentId;
@@ -567,8 +570,9 @@ var JpegImage = (function jpegImage() {
             var blocks = [];
             for (var i = 0; i < blocksPerColumnForMcu; i++) {
               var row = [];
-              for (var j = 0; j < blocksPerLineForMcu; j++)
+              for (var j = 0; j < blocksPerLineForMcu; j++) {
                 row.push(new Int16Array(64));
+              }
               blocks.push(row);
             }
             component.blocksPerLine = blocksPerLine;
@@ -581,11 +585,13 @@ var JpegImage = (function jpegImage() {
         frame.mcusPerLine = mcusPerLine;
         frame.mcusPerColumn = mcusPerColumn;
       }
+
+      var offset = 0, length = data.length;
       var jfif = null;
       var adobe = null;
       var pixels = null;
       var frame, resetInterval;
-      var quantizationTables = [], frames = [];
+      var quantizationTables = [];
       var huffmanTablesAC = [], huffmanTablesDC = [];
       var fileMarker = readUint16();
       if (fileMarker != 0xFFD8) { // SOI (Start of Image)
@@ -668,6 +674,9 @@ var JpegImage = (function jpegImage() {
           case 0xFFC0: // SOF0 (Start of Frame, Baseline DCT)
           case 0xFFC1: // SOF1 (Start of Frame, Extended DCT)
           case 0xFFC2: // SOF2 (Start of Frame, Progressive DCT)
+            if (frame) {
+              throw "Only single frame JPEGs supported";
+            }
             readUint16(); // skip data length
             frame = {};
             frame.extended = (fileMarker === 0xFFC1);
@@ -693,7 +702,6 @@ var JpegImage = (function jpegImage() {
               offset += 3;
             }
             prepareComponents(frame);
-            frames.push(frame);
             break;
 
           case 0xFFC4: // DHT (Define Huffman Tables)
@@ -709,7 +717,7 @@ var JpegImage = (function jpegImage() {
                 huffmanValues[j] = data[offset];
               i += 17 + codeLengthSum;
 
-              ((huffmanTableSpec >> 4) === 0 ? 
+              ((huffmanTableSpec >> 4) === 0 ?
                 huffmanTablesDC : huffmanTablesAC)[huffmanTableSpec & 15] =
                 buildHuffmanTable(codeLengths, huffmanValues);
             }
@@ -752,8 +760,6 @@ var JpegImage = (function jpegImage() {
         }
         fileMarker = readUint16();
       }
-      if (frames.length != 1)
-        throw "only single frame JPEGs supported";
 
       this.width = frame.samplesPerLine;
       this.height = frame.scanLines;
