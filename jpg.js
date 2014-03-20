@@ -501,25 +501,25 @@ var JpegImage = (function jpegImage() {
     var blocksPerLine = component.blocksPerLine;
     var blocksPerColumn = component.blocksPerColumn;
     var samplesPerLine = blocksPerLine << 3;
-    var R = new Int32Array(64);
+    var R = new Int16Array(64);
 
     var i, j;
     for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
       var scanLine = blockRow << 3;
-      for (i = 0; i < 8; i++)
+      for (i = 0; i < 8; i++) {
         lines.push(new Uint8Array(samplesPerLine));
+      }
       for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
-
 
         quantizeAndInverse(component,
                            getBlockBufferOffset(component, blockRow, blockCol),
                            R);
-
         var offset = 0, sample = blockCol << 3;
         for (j = 0; j < 8; j++) {
           var line = lines[scanLine + j];
-          for (i = 0; i < 8; i++)
+          for (i = 0; i < 8; i++) {
             line[sample + i] = R[offset++];
+          }
         }
       }
     }
@@ -560,28 +560,24 @@ var JpegImage = (function jpegImage() {
         return array;
       }
 
-      function prepareComponents(frame, maxH, maxV) {
-        var mcusPerLine = Math.ceil(frame.samplesPerLine / (maxH << 3));
-        var mcusPerColumn = Math.ceil(frame.scanLines / (maxV << 3));
-        for (componentId in frame.components) {
-          if (frame.components.hasOwnProperty(componentId)) {
-            component = frame.components[componentId];
-            var blocksPerLine = Math.ceil(Math.ceil(frame.samplesPerLine / 8) * component.h / maxH);
-            var blocksPerColumn = Math.ceil(Math.ceil(frame.scanLines  / 8) * component.v / maxV);
-            var blocksPerLineForMcu = mcusPerLine * component.h;
-            var blocksPerColumnForMcu = mcusPerColumn * component.v;
+      function prepareComponents(frame) {
+        var mcusPerLine = Math.ceil(frame.samplesPerLine / (frame.maxH << 3));
+        var mcusPerColumn = Math.ceil(frame.scanLines / (frame.maxV << 3));
+        for (var i = 0; i < frame.components.length; i++) {
+          component = frame.components[i];
+          var blocksPerLine = Math.ceil(Math.ceil(frame.samplesPerLine / 8) * component.h / maxH);
+          var blocksPerColumn = Math.ceil(Math.ceil(frame.scanLines  / 8) * component.v / maxV);
+          var blocksPerLineForMcu = mcusPerLine * component.h;
+          var blocksPerColumnForMcu = mcusPerColumn * component.v;
 
-            var blocksBufferSize = 64 * blocksPerColumnForMcu
-                                      * blocksPerLineForMcu;
-            var blocks = new Int16Array(blocksBufferSize);
+          var blocksBufferSize = 64 * blocksPerColumnForMcu
+                                    * blocksPerLineForMcu;
+          var blocks = new Int16Array(blocksBufferSize);
 
-            component.blocksPerLine = blocksPerLine;
-            component.blocksPerColumn = blocksPerColumn;
-            component.blocks = blocks;
-          }
+          component.blocksPerLine = blocksPerLine;
+          component.blocksPerColumn = blocksPerColumn;
+          component.blocks = blocks;
         }
-        frame.maxH = maxH;
-        frame.maxV = maxV;
         frame.mcusPerLine = mcusPerLine;
         frame.mcusPerColumn = mcusPerColumn;
       }
@@ -684,8 +680,8 @@ var JpegImage = (function jpegImage() {
             frame.precision = data[offset++];
             frame.scanLines = readUint16();
             frame.samplesPerLine = readUint16();
-            frame.components = {};
-            frame.componentsOrder = [];
+            frame.components = [];
+            frame.componentIds = {};
             var componentsCount = data[offset++], componentId;
             var maxH = 0, maxV = 0;
             for (i = 0; i < componentsCount; i++) {
@@ -695,15 +691,17 @@ var JpegImage = (function jpegImage() {
               if (maxH < h) maxH = h;
               if (maxV < v) maxV = v;
               var qId = data[offset + 2];
-              frame.componentsOrder.push(componentId);
-              frame.components[componentId] = {
+              var l = frame.components.push({
                 h: h,
                 v: v,
                 quantizationTable: quantizationTables[qId]
-              };
+              });
+              frame.componentIds[componentId] = l - 1;
               offset += 3;
             }
-            prepareComponents(frame, maxH, maxV);
+            frame.maxH = maxH;
+            frame.maxV = maxV;
+            prepareComponents(frame);
             break;
 
           case 0xFFC4: // DHT (Define Huffman Tables)
@@ -735,7 +733,8 @@ var JpegImage = (function jpegImage() {
             var selectorsCount = data[offset++];
             var components = [], component;
             for (i = 0; i < selectorsCount; i++) {
-              component = frame.components[data[offset++]];
+              var componentIndex = frame.componentIds[data[offset++]];
+              component = frame.components[componentIndex];
               var tableSpec = data[offset++];
               component.huffmanTableDC = huffmanTablesDC[tableSpec >> 4];
               component.huffmanTableAC = huffmanTablesAC[tableSpec & 15];
@@ -768,8 +767,8 @@ var JpegImage = (function jpegImage() {
       this.jfif = jfif;
       this.adobe = adobe;
       this.components = [];
-      for (var i = 0; i < frame.componentsOrder.length; i++) {
-        var component = frame.components[frame.componentsOrder[i]];
+      for (var i = 0; i < frame.components.length; i++) {
+        var component = frame.components[i];
         this.components.push({
           lines: buildComponentData(frame, component),
           scaleX: component.h / frame.maxH,
