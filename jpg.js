@@ -503,11 +503,11 @@ var JpegImage = (function jpegImage() {
     var samplesPerLine = blocksPerLine << 3;
     var R = new Int16Array(64);
 
-    var i, j;
+    var i, j, ll = 0;
     for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
       var scanLine = blockRow << 3;
       for (i = 0; i < 8; i++) {
-        lines.push(new Uint8Array(samplesPerLine));
+        lines[ll++] = new Uint8Array(samplesPerLine);
       }
       for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
 
