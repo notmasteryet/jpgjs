@@ -506,7 +506,7 @@ var JpegImage = (function jpegImage() {
 
     // convert to 8-bit integers
     for (i = 0; i < 64; ++i) {
-      p[i] = clampTo8bit((p[i] + 2056) >> 4);
+      p[i] = clampTo8bitInt((p[i] + 2056) >> 4);
     }
   }
 
@@ -515,7 +515,7 @@ var JpegImage = (function jpegImage() {
     var blocksPerLine = component.blocksPerLine;
     var blocksPerColumn = component.blocksPerColumn;
     var samplesPerLine = blocksPerLine << 3;
-    var computationBuffer = new Int16Array(64);
+    var computationBuffer = new Int32Array(64);
 
     var i, j, ll = 0;
     for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
@@ -541,8 +541,12 @@ var JpegImage = (function jpegImage() {
     return lines;
   }
 
-  function clampTo8bit(a) {
+  function clampTo8bitInt(a) {
     return a <= 0 ? 0 : a >= 255 ? 255 : a | 0;
+  }
+
+  function clamp0to255(a) {
+    return a <= 0 ? 0 : a >= 255 ? 255 : a;
   }
 
   constructor.prototype = {
@@ -836,9 +840,9 @@ var JpegImage = (function jpegImage() {
               Cb = data[i + 1];
               Cr = data[i + 2];
 
-              R = clampTo8bit(Y + 1.402 * (Cr - 128));
-              G = clampTo8bit(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
-              B = clampTo8bit(Y + 1.772 * (Cb - 128));
+              R = clamp0to255(Y + 1.402 * (Cr - 128));
+              G = clamp0to255(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
+              B = clamp0to255(Y + 1.772 * (Cb - 128));
 
               data[i    ] = R;
               data[i + 1] = G;
@@ -863,9 +867,9 @@ var JpegImage = (function jpegImage() {
               Cb = data[i + 1];
               Cr = data[i + 2];
 
-              C = 255 - clampTo8bit(Y + 1.402 * (Cr - 128));
-              M = 255 - clampTo8bit(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
-              Ye = 255 - clampTo8bit(Y + 1.772 * (Cb - 128));
+              C = 255 - clamp0to255(Y + 1.402 * (Cr - 128));
+              M = 255 - clamp0to255(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
+              Ye = 255 - clamp0to255(Y + 1.772 * (Cb - 128));
 
               data[i    ] = C;
               data[i + 1] = M;
@@ -916,9 +920,9 @@ var JpegImage = (function jpegImage() {
             Y = data[i++];
             K = data[i++];
 
-            R = 255 - clampTo8bit(C * (1 - K / 255) + K);
-            G = 255 - clampTo8bit(M * (1 - K / 255) + K);
-            B = 255 - clampTo8bit(Y * (1 - K / 255) + K);
+            R = 255 - clamp0to255(C * (1 - K / 255) + K);
+            G = 255 - clamp0to255(M * (1 - K / 255) + K);
+            B = 255 - clamp0to255(Y * (1 - K / 255) + K);
 
             imageDataArray[j++] = R;
             imageDataArray[j++] = G;
