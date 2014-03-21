@@ -515,7 +515,7 @@ var JpegImage = (function jpegImage() {
     var blocksPerLine = component.blocksPerLine;
     var blocksPerColumn = component.blocksPerColumn;
     var samplesPerLine = blocksPerLine << 3;
-    var R = new Int16Array(64);
+    var computationBuffer = new Int16Array(64);
 
     var i, j, ll = 0;
     for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
@@ -527,12 +527,13 @@ var JpegImage = (function jpegImage() {
 
         quantizeAndInverse(component,
                            getBlockBufferOffset(component, blockRow, blockCol),
-                           R);
+                           computationBuffer);
+
         var offset = 0, sample = blockCol << 3;
         for (j = 0; j < 8; j++) {
           var line = lines[scanLine + j];
           for (i = 0; i < 8; i++) {
-            line[sample + i] = R[offset++];
+            line[sample + i] = computationBuffer[offset++];
           }
         }
       }
@@ -586,11 +587,9 @@ var JpegImage = (function jpegImage() {
 
           var blocksBufferSize = 64 * blocksPerColumnForMcu
                                     * (blocksPerLineForMcu + 1);
-          var blocks = new Int16Array(blocksBufferSize);
-
+          component.blocks = new Int16Array(blocksBufferSize);
           component.blocksPerLine = blocksPerLine;
           component.blocksPerColumn = blocksPerColumn;
-          component.blocks = blocks;
         }
         frame.mcusPerLine = mcusPerLine;
         frame.mcusPerColumn = mcusPerColumn;
