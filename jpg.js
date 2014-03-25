@@ -363,8 +363,9 @@ var JpegImage = (function jpegImage() {
     var i;
 
     // dequant
-    for (i = 0; i < 64; i++)
+    for (i = 0; i < 64; i++) {
       p[i] = component.blocks[blockBufferOffset + i] * qt[i];
+    }
 
     // inverse DCT on rows
     for (i = 0; i < 8; ++i) {
@@ -506,7 +507,8 @@ var JpegImage = (function jpegImage() {
 
     // convert to 8-bit integers
     for (i = 0; i < 64; ++i) {
-      p[i] = clampTo8bitInt((p[i] + 2056) >> 4);
+      var index = blockBufferOffset + i;
+      component.blocks[index] = clampTo8bitInt((p[i] + 2056) >> 4);
     }
   }
 
@@ -519,26 +521,12 @@ var JpegImage = (function jpegImage() {
 
     var i, j, ll = 0;
     for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
-      var scanLine = blockRow << 3;
-      for (i = 0; i < 8; i++) {
-        lines[ll++] = new Uint8Array(samplesPerLine);
-      }
       for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
-
-        quantizeAndInverse(component,
-                           getBlockBufferOffset(component, blockRow, blockCol),
-                           computationBuffer);
-
-        var offset = 0, sample = blockCol << 3;
-        for (j = 0; j < 8; j++) {
-          var line = lines[scanLine + j];
-          for (i = 0; i < 8; i++) {
-            line[sample + i] = computationBuffer[offset++];
-          }
-        }
+        var offset = getBlockBufferOffset(component, blockRow, blockCol)
+        quantizeAndInverse(component, offset, computationBuffer);
       }
     }
-    return lines;
+    return component.blocks;
   }
 
   function clampTo8bitInt(a) {
@@ -787,32 +775,61 @@ var JpegImage = (function jpegImage() {
       for (var i = 0; i < frame.components.length; i++) {
         var component = frame.components[i];
         this.components.push({
-          lines: buildComponentData(frame, component),
+          output: buildComponentData(frame, component),
           scaleX: component.h / frame.maxH,
-          scaleY: component.v / frame.maxV
+          scaleY: component.v / frame.maxV,
+          blocksPerLine: component.blocksPerLine,
+          blocksPerColumn: component.blocksPerColumn
         });
       }
     },
+
     getData: function getData(width, height) {
       var scaleX = this.width / width, scaleY = this.height / height;
 
-      var component, componentLine, componentScaleX, componentScaleY;
+      var component, componentScaleX, componentScaleY;
       var x, y, i;
+      var cx, cy;
       var offset = 0;
       var Y, Cb, Cr, K, C, M, Ye, R, G, B;
       var colorTransform;
       var numComponents = this.components.length;
       var dataLength = width * height * numComponents;
       var data = new Uint8Array(dataLength);
+      var componentLine;
 
       // First construct image data ...
       for (i = 0; i < numComponents; i++) {
         component = this.components[i];
+        var lines = [];
+        var blocksPerLine = component.blocksPerLine;
+        var blocksPerColumn = component.blocksPerColumn;
+        var samplesPerLine = blocksPerLine << 3;
+
+        var k, j, ll = 0;
+        for (var blockRow = 0; blockRow < blocksPerColumn; blockRow++) {
+          var scanLine = blockRow << 3;
+          for (k = 0; k < 8; k++) {
+            lines[ll++] = new Uint8Array(samplesPerLine);
+          }
+          for (var blockCol = 0; blockCol < blocksPerLine; blockCol++) {
+            var bufferOffset = getBlockBufferOffset(component, blockRow, blockCol);
+            var offset = 0, sample = blockCol << 3;
+            for (j = 0; j < 8; j++) {
+              var line = lines[scanLine + j];
+              for (k = 0; k < 8; k++) {
+                line[sample + k] = component.output[bufferOffset + offset++];
+              }
+            }
+          }
+        }
+
         componentScaleX = component.scaleX * scaleX;
         componentScaleY = component.scaleY * scaleY;
         offset = i;
+
         for (y = 0; y < height; y++) {
-          componentLine = component.lines[0 | (y * componentScaleY)];
+          componentLine = lines[0 | (y * componentScaleY)];
           for (x = 0; x < width; x++) {
             data[offset] = componentLine[0 | (x * componentScaleX)];
             offset += numComponents;
