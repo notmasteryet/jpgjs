@@ -156,7 +156,7 @@ var JpegImage = (function jpegImage() {
     function decodeBaseline(component, offset) {
       var t = decodeHuffman(component.huffmanTableDC);
       var diff = t === 0 ? 0 : receiveAndExtend(t);
-      component.blocks[offset] = (component.pred += diff);
+      component.blockData[offset] = (component.pred += diff);
       var k = 1;
       while (k < 64) {
         var rs = decodeHuffman(component.huffmanTableAC);
@@ -169,7 +169,7 @@ var JpegImage = (function jpegImage() {
         }
         k += r;
         var z = dctZigZag[k];
-        component.blocks[offset + z] = receiveAndExtend(s);
+        component.blockData[offset + z] = receiveAndExtend(s);
         k++;
       }
     }
@@ -177,11 +177,11 @@ var JpegImage = (function jpegImage() {
     function decodeDCFirst(component, offset) {
       var t = decodeHuffman(component.huffmanTableDC);
       var diff = t === 0 ? 0 : (receiveAndExtend(t) << successive);
-      component.blocks[offset] = (component.pred += diff);
+      component.blockData[offset] = (component.pred += diff);
     }
 
     function decodeDCSuccessive(component, offset) {
-      component.blocks[offset] |= readBit() << successive;
+      component.blockData[offset] |= readBit() << successive;
     }
 
     var eobrun = 0;
@@ -204,7 +204,7 @@ var JpegImage = (function jpegImage() {
         }
         k += r;
         var z = dctZigZag[k];
-        component.blocks[offset + z] = receiveAndExtend(s) * (1 << successive);
+        component.blockData[offset + z] = receiveAndExtend(s) * (1 << successive);
         k++;
       }
     }
@@ -235,8 +235,8 @@ var JpegImage = (function jpegImage() {
           continue;
         case 1: // skipping r zero items
         case 2:
-          if (component.blocks[offset + z]) {
-            component.blocks[offset + z] += (readBit() << successive);
+          if (component.blockData[offset + z]) {
+            component.blockData[offset + z] += (readBit() << successive);
           } else {
             r--;
             if (r === 0)
@@ -244,16 +244,16 @@ var JpegImage = (function jpegImage() {
           }
           break;
         case 3: // set value for a zero item
-          if (component.blocks[offset + z]) {
-            component.blocks[offset + z] += (readBit() << successive);
+          if (component.blockData[offset + z]) {
+            component.blockData[offset + z] += (readBit() << successive);
           } else {
-            component.blocks[offset + z] = successiveACNextValue << successive;
+            component.blockData[offset + z] = successiveACNextValue << successive;
             successiveACState = 0;
           }
           break;
         case 4: // eob
-          if (component.blocks[offset + z]) {
-            component.blocks[offset + z] += (readBit() << successive);
+          if (component.blockData[offset + z]) {
+            component.blockData[offset + z] += (readBit() << successive);
           }
           break;
         }
@@ -364,7 +364,7 @@ var JpegImage = (function jpegImage() {
 
     // dequant
     for (i = 0; i < 64; i++) {
-      p[i] = component.blocks[blockBufferOffset + i] * qt[i];
+      p[i] = component.blockData[blockBufferOffset + i] * qt[i];
     }
 
     // inverse DCT on rows
@@ -508,7 +508,7 @@ var JpegImage = (function jpegImage() {
     // convert to 8-bit integers
     for (i = 0; i < 64; ++i) {
       var index = blockBufferOffset + i;
-      component.blocks[index] = clampTo8bitInt((p[i] + 2056) >> 4);
+      component.blockData[index] = clampTo8bitInt((p[i] + 2056) >> 4);
     }
   }
 
@@ -526,7 +526,7 @@ var JpegImage = (function jpegImage() {
         quantizeAndInverse(component, offset, computationBuffer);
       }
     }
-    return component.blocks;
+    return component.blockData;
   }
 
   function clampTo8bitInt(a) {
@@ -579,7 +579,7 @@ var JpegImage = (function jpegImage() {
 
           var blocksBufferSize = 64 * blocksPerColumnForMcu
                                     * (blocksPerLineForMcu + 1);
-          component.blocks = new Int16Array(blocksBufferSize);
+          component.blockData = new Int16Array(blocksBufferSize);
           component.blocksPerLine = blocksPerLine;
           component.blocksPerColumn = blocksPerColumn;
         }
