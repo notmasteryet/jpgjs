@@ -508,7 +508,9 @@ var JpegImage = (function jpegImage() {
     // convert to 8-bit integers
     for (i = 0; i < 64; ++i) {
       var index = blockBufferOffset + i;
-      component.blockData[index] = clampTo8bitInt((p[i] + 2056) >> 4);
+      var q = p[i];
+      q = (q <= -2056) ? 0 : (q >= 2024) ? 255 : (q + 2056) >> 4;
+      component.blockData[index] = q;
     }
   }
 
@@ -529,12 +531,8 @@ var JpegImage = (function jpegImage() {
     return component.blockData;
   }
 
-  function clampTo8bitInt(a) {
+  function clampToUint8(a) {
     return a <= 0 ? 0 : a >= 255 ? 255 : a | 0;
-  }
-
-  function clamp0to255(a) {
-    return a <= 0 ? 0 : a >= 255 ? 255 : a;
   }
 
   constructor.prototype = {
@@ -863,9 +861,9 @@ var JpegImage = (function jpegImage() {
               Cb = data[i + 1];
               Cr = data[i + 2];
 
-              R = clamp0to255(Y + 1.402 * (Cr - 128));
-              G = clamp0to255(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
-              B = clamp0to255(Y + 1.772 * (Cb - 128));
+              R = clampToUint8(Y - 179.456 + 1.402 * Cr);
+              G = clampToUint8(Y + 135.459 - 0.344 * Cb - 0.714 * Cr);
+              B = clampToUint8(Y - 226.816 + 1.772 * Cb);
 
               data[i    ] = R;
               data[i + 1] = G;
@@ -890,13 +888,13 @@ var JpegImage = (function jpegImage() {
               Cb = data[i + 1];
               Cr = data[i + 2];
 
-              C = 255 - clamp0to255(Y + 1.402 * (Cr - 128));
-              M = 255 - clamp0to255(Y - 0.3441363 * (Cb - 128) - 0.71413636 * (Cr - 128));
-              Ye = 255 - clamp0to255(Y + 1.772 * (Cb - 128));
+              C = clampToUint8(434.456 - Y - 1.402 * Cr);
+              M = clampToUint8(119.541 - Y + 0.344 * Cb + 0.714 * Cr);
+              Y = clampToUint8(481.816 - Y - 1.772 * Cb);
 
               data[i    ] = C;
               data[i + 1] = M;
-              data[i + 2] = Ye;
+              data[i + 2] = Y;
               // K is unchanged
             }
           }
@@ -911,7 +909,7 @@ var JpegImage = (function jpegImage() {
       var imageDataBytes = width * height * 4;
       var imageDataArray = imageData.data;
       var data = this.getData(width, height);
-      var i = 0, j = 0;
+      var i = 0, j = 0, k0, k1;
       var Y, K, C, M, R, G, B;
       switch (this.components.length) {
         case 1:
@@ -943,9 +941,13 @@ var JpegImage = (function jpegImage() {
             Y = data[i++];
             K = data[i++];
 
-            R = 255 - clamp0to255(C * (1 - K / 255) + K);
-            G = 255 - clamp0to255(M * (1 - K / 255) + K);
-            B = 255 - clamp0to255(Y * (1 - K / 255) + K);
+            k0 = 255 - K;
+            k1 = k0 / 255;
+
+
+            R = clampToUint8(k0 - C * k1);
+            G = clampToUint8(k0 - M * k1);
+            B = clampToUint8(k0 - Y * k1);
 
             imageDataArray[j++] = R;
             imageDataArray[j++] = G;
