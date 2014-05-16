@@ -536,20 +536,6 @@ var JpegImage = (function jpegImage() {
   }
 
   constructor.prototype = {
-    load: function load(path) {
-      var xhr = new XMLHttpRequest();
-      xhr.open("GET", path, true);
-      xhr.responseType = "arraybuffer";
-      xhr.onload = (function() {
-        // TODO catch parse error
-        var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
-        this.parse(data);
-        if (this.onload)
-          this.onload();
-      }).bind(this);
-      xhr.send(null);
-    },
-
     parse: function parse(data) {
 
       function readUint16() {
@@ -960,6 +946,22 @@ var JpegImage = (function jpegImage() {
       }
     }
   };
+
+  Object.defineProperty(constructor.prototype, "src", {
+    set: function(path) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', path, true);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = (function() {
+        // TODO catch parse error
+        var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
+        this.parse(data);
+        if (this.onload)
+          this.onload();
+      }).bind(this);
+      xhr.send(null);
+    }
+  });
 
   return constructor;
 })();
