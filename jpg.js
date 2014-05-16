@@ -536,7 +536,7 @@ var JpegImage = (function jpegImage() {
   }
 
   constructor.prototype = {
-    load: function load(path) {
+    set src (path) {
       var xhr = new XMLHttpRequest();
       xhr.open("GET", path, true);
       xhr.responseType = "arraybuffer";
