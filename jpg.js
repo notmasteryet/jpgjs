@@ -537,17 +537,31 @@ var JpegImage = (function jpegImage() {
 
   constructor.prototype = {
     load: function load(path) {
-      var xhr = new XMLHttpRequest();
-      xhr.open("GET", path, true);
-      xhr.responseType = "arraybuffer";
-      xhr.onload = (function() {
-        // TODO catch parse error
-        var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
-        this.parse(data);
+      var handleData = (function(data) {
+        this.parse(arr);
         if (this.onload)
           this.onload();
       }).bind(this);
-      xhr.send(null);
+
+      if (path.indexOf("data:") > -1) {
+        var offset = path.indexOf("base64,")+7;
+        var data = atob(path.substring(offset));
+        var arr = new Uint8Array(data.length);
+        for (var i = data.length - 1; i >= 0; i--) {
+          arr[i] = data.charCodeAt(i);
+        }
+        handleData(data);
+      } else {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", path, true);
+        xhr.responseType = "arraybuffer";
+        xhr.onload = (function() {
+          // TODO catch parse error
+          var data = new Uint8Array(xhr.response);
+          handleData(data);
+        }).bind(this);
+        xhr.send(null);
+      }
     },
 
     parse: function parse(data) {
