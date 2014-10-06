@@ -538,7 +538,7 @@ var JpegImage = (function jpegImage() {
   constructor.prototype = {
     load: function load(path) {
       var handleData = (function(data) {
-        this.parse(arr);
+        this.parse(data);
         if (this.onload)
           this.onload();
       }).bind(this);
