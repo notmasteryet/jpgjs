@@ -24,8 +24,17 @@
 //   in PostScript Level 2, Technical Note #5116
 //   (partners.adobe.com/public/developer/en/ps/sdk/5116.DCT_Filter.pdf)
 
-var JpegImage = (function jpegImage() {
+;(function (context, name, factory) {
+  if (typeof define === "function" && define.amd) {
+    define(name, [], factory);
+  } else if (typeof exports === "object") {
+    module.exports = factory();
+  } else {
+    context[name] = factory();
+  }
+})(this, "JpegImage", function(){
   "use strict";
+
   var dctZigZag = new Int32Array([
      0,
      1,  8,
@@ -53,6 +62,7 @@ var JpegImage = (function jpegImage() {
   var dctSqrt2 =  5793   // sqrt(2)
   var dctSqrt1d2 = 2896  // sqrt(2) / 2
 
+  // jpegimage
   function constructor() {
   }
 
@@ -127,9 +137,9 @@ var JpegImage = (function jpegImage() {
       var bit;
       while ((bit = readBit()) !== null) {
         node = node[bit];
-        if (typeof node === 'number')
+        if (typeof node === "number")
           return node;
-        if (typeof node !== 'object')
+        if (typeof node !== "object")
           throw "invalid huffman sequence";
       }
       return null;
@@ -866,7 +876,7 @@ var JpegImage = (function jpegImage() {
           // The adobe transform marker overrides any previous setting
           if (this.adobe && this.adobe.transformCode)
             colorTransform = true;
-          else if (typeof this.colorTransform !== 'undefined')
+          else if (typeof this.colorTransform !== "undefined")
             colorTransform = !!this.colorTransform;
 
           if (colorTransform) {
@@ -887,13 +897,13 @@ var JpegImage = (function jpegImage() {
           break;
         case 4:
           if (!this.adobe)
-            throw 'Unsupported color mode (4 components)';
+            throw "Unsupported color mode (4 components)";
           // The default transform for four components is false
           colorTransform = false;
           // The adobe transform marker overrides any previous setting
           if (this.adobe && this.adobe.transformCode)
             colorTransform = true;
-          else if (typeof this.colorTransform !== 'undefined')
+          else if (typeof this.colorTransform !== "undefined")
             colorTransform = !!this.colorTransform;
 
           if (colorTransform) {
@@ -914,7 +924,7 @@ var JpegImage = (function jpegImage() {
           }
           break;
         default:
-          throw 'Unsupported color mode';
+          throw "Unsupported color mode";
       }
       return data;
     },
@@ -970,10 +980,10 @@ var JpegImage = (function jpegImage() {
           }
           break;
         default:
-          throw 'Unsupported color mode';
+          throw "Unsupported color mode";
       }
     }
   };
 
   return constructor;
-})();
+});
