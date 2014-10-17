@@ -10,6 +10,7 @@ Quickstart
 ----------
 
 Download the library ([jpg.js](/jpg.js)) and use a script to include it.
+In addition to the global namespace are AMD and CommonJS supported as well.
 
 A bower package is available as well: ```js bower install jpgjs```
 
@@ -26,9 +27,11 @@ var jpeg = new JpegImage('j1.jpg');
 
 jpeg.load(function (jpeg) {
   console.log(jpeg);
-  // jpeg.data:
-  // jpeg.width:
-  // jpeg.height:
+  // {
+  //   data: Uint8ClampedArray == ImagaData
+  //   width: number,
+  //   height: number
+  // }
 });
 ```
 
@@ -44,9 +47,10 @@ Define new instance with the image source.
 ```js
 JpegImage.load([src], [onload])
 ```
-Invoke the loading of the image.
+Invoke the loading of the image and set up a handler
+for retrieving the data.
 
 ```js
 JpegImage.copyToImageData(imageData)
 ```
-Transfer image data intoa  another imagaData.
+Directly transfer the image data into another image.
