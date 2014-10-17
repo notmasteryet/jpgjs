@@ -1,0 +1,19 @@
+{
+  "name": "jpgjs",
+  "description": "Simple JPEG/DCT data decoder in JavaScript",
+  "version": "1.0.0",
+  "main": "jpg.js",
+  "keywords": [
+    "JPEG",
+    "image",
+    "decoder"
+  ],
+  "homepage": "https://github.com/Autarc/jpgjs",
+  "authors": [
+    "yurydelendik <ydelendik@mozilla.com>"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*"
+  ]
+}
