@@ -63,9 +63,17 @@
   var dctSqrt1d2 = 2896  // sqrt(2) / 2
 
   // jpegimage
-  function constructor() {
+  function constructor (src) {
+    this.src = src;
   }
 
+  /**
+   * [buildHuffmanTable description]
+   *
+   * @param  {[type]} codeLengths [description]
+   * @param  {[type]} values      [description]
+   * @return {[type]}             [description]
+   */
   function buildHuffmanTable(codeLengths, values) {
     var k = 0, code = [], i, j, length = 16;
     while (length > 0 && !codeLengths[length - 1])
@@ -98,10 +106,32 @@
     return code[0].children;
   }
 
+  /**
+   * [getBlockBufferOffset description]
+   *
+   * @param  {[type]} component [description]
+   * @param  {[type]} row       [description]
+   * @param  {[type]} col       [description]
+   * @return {[type]}           [description]
+   */
   function getBlockBufferOffset(component, row, col) {
     return 64 * ((component.blocksPerLine + 1) * row + col);
   }
 
+  /**
+   * [decodeScan description]
+   *
+   * @param  {[type]} data           [description]
+   * @param  {[type]} offset         [description]
+   * @param  {[type]} frame          [description]
+   * @param  {[type]} components     [description]
+   * @param  {[type]} resetInterval  [description]
+   * @param  {[type]} spectralStart  [description]
+   * @param  {[type]} spectralEnd    [description]
+   * @param  {[type]} successivePrev [description]
+   * @param  {[type]} successive     [description]
+   * @return {[type]}                [description]
+   */
   function decodeScan(data, offset,
                       frame, components, resetInterval,
                       spectralStart, spectralEnd,
@@ -362,11 +392,18 @@
     return offset - startOffset;
   }
 
-  // A port of poppler's IDCT method which in turn is taken from:
-  //   Christoph Loeffler, Adriaan Ligtenberg, George S. Moschytz,
-  //   "Practical Fast 1-D DCT Algorithms with 11 Multiplications",
-  //   IEEE Intl. Conf. on Acoustics, Speech & Signal Processing, 1989,
-  //   988-991.
+  /**
+   * A port of poppler's IDCT method which in turn is taken from:
+   * Christoph Loeffler, Adriaan Ligtenberg, George S. Moschytz,
+   * "Practical Fast 1-D DCT Algorithms with 11 Multiplications",
+   * IEEE Intl. Conf. on Acoustics, Speech & Signal Processing, 1989,
+   * 988-991.
+   *
+   * @param  {[type]} component         [description]
+   * @param  {[type]} blockBufferOffset [description]
+   * @param  {[type]} p                 [description]
+   * @return {[type]}                   [description]
+   */
   function quantizeAndInverse(component, blockBufferOffset, p) {
     var qt = component.quantizationTable;
     var v0, v1, v2, v3, v4, v5, v6, v7, t;
@@ -524,6 +561,13 @@
     }
   }
 
+  /**
+   * [buildComponentData description]
+   *
+   * @param  {[type]} frame     [description]
+   * @param  {[type]} component [description]
+   * @return {[type]}           [description]
+   */
   function buildComponentData(frame, component) {
     var lines = [];
     var blocksPerLine = component.blocksPerLine;
@@ -541,10 +585,22 @@
     return component.blockData;
   }
 
+  /**
+   * [clampToUint8 description]
+   *
+   * @param  {[type]} a [description]
+   * @return {[type]}   [description]
+   */
   function clampToUint8(a) {
     return a <= 0 ? 0 : a >= 255 ? 255 : a | 0;
   }
 
+  /**
+   * [parse description]
+   *
+   * @param  {[type]} data [description]
+   * @return {[type]}      [description]
+   */
   function parse(data) {
 
     function readUint16() {
@@ -760,33 +816,36 @@
       fileMarker = readUint16();
     }
 
-    this.width = frame.samplesPerLine;
-    this.height = frame.scanLines;
-    this.jfif = jfif;
-    this.adobe = adobe;
-    this.components = [];
-    for (var i = 0; i < frame.components.length; i++) {
-      var component = frame.components[i];
-      this.components.push({
-        output: buildComponentData(frame, component),
-        scaleX: component.h / frame.maxH,
-        scaleY: component.v / frame.maxV,
-        blocksPerLine: component.blocksPerLine,
-        blocksPerColumn: component.blocksPerColumn
-      });
-    }
+    var components = frame.components.map(function (component) {
+      return {
+        "output": buildComponentData(frame, component),
+        "scaleX": component.h / frame.maxH,
+        "scaleY": component.v / frame.maxV,
+        "blocksPerLine": component.blocksPerLine,
+        "blocksPerColumn": component.blocksPerColumn
+      };
+    });
 
-    this.buffer = document.createElement('canvas');
-    this.data = extractData.call(this);
+    return {
+      "width": frame.samplesPerLine,
+      "height": frame.scanLines,
+      "jfif": jfif,
+      "adobe": adobe,
+      "components": components
+    };
   }
 
-  function extractData(){
-    var ctx = this.buffer.getContext('2d');
-    var imageData = ctx.createImageData(this.width, this.height);
-    var width = imageData.width;
-    var height = imageData.height;
+  /**
+   * [extractData description].
+   * Used in the context of 'raw'.
+   *
+   * @return {[type]} [description]
+   */
+  function extractImageData() {
+    var width = this.width;
+    var height = this.height;
     var imageDataBytes = width * height * 4;
-    var imageDataArray = imageData.data;
+    var imageDataArray = new Uint8ClampedArray(imageDataBytes);
     var data = getData.call(this, width, height);
     var i = 0, j = 0, k0, k1;
     var Y, K, C, M, R, G, B;
@@ -840,9 +899,17 @@
     return imageDataArray;
   }
 
+  /**
+   * [getData description]
+   * Used in the context of 'raw'.
+   *
+   * @param  {[type]} width  [description]
+   * @param  {[type]} height [description]
+   * @return {[type]}        [description]
+   */
   function getData(width, height) {
-    var scaleX = this.width / width, scaleY = this.height / height;
-
+    var scaleX = this.width / width;
+    var scaleY = this.height / height;
     var component, componentScaleX, componentScaleY;
     var x, y, i;
     var offset = 0;
@@ -963,17 +1030,33 @@
     return data;
   }
 
+  /**
+   * [prototype description]
+   *
+   * @type {Object}
+   */
   constructor.prototype = {
-    load: function load(path, next) {
-      var handleData = (function(data) {
-        parse.call(this, data);
-        if (next) {
-          this.onload = next;
-        }
+    load: function load(src, next) {
+      if (src && typeof src !== 'string') {
+        next = src;
+        src = null;
+      }
+      if (typeof next === 'function') {
+        this.onload = next;
+      }
+
+      var handleData = function(data) {
+        var raw = parse.call(this, data);
+        // internals => jiff, adobe, components
+        this.width = raw.width;
+        this.height = raw.height;
+        this.data = extractImageData.call(raw);
         if (this.onload) {
-          this.onload(this.buffer);
+          this.onload(this);
         }
-      }).bind(this);
+      }.bind(this);
+
+      var path = src || this.src;
       if (path.indexOf("data:") > -1) {
         var offset = path.indexOf("base64,")+7;
         var data = atob(path.substring(offset));
