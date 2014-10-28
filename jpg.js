@@ -508,7 +508,7 @@ var JpegImage = (function jpegImage() {
     // convert to 8-bit integers
     for (i = 0; i < 64; ++i) {
       var index = blockBufferOffset + i;
-      var q = p[i];
+      var q = Math.floor(p[i]*component.bitConversion);
       q = (q <= -2056) ? 0 : (q >= 2024) ? 255 : (q + 2056) >> 4;
       component.blockData[index] = q;
     }
@@ -711,7 +711,9 @@ var JpegImage = (function jpegImage() {
               var l = frame.components.push({
                 h: h,
                 v: v,
-                quantizationTable: quantizationTables[qId]
+                quantizationTable: quantizationTables[qId],
+                quantizationTableId: qId,
+                bitConversion:255/((1<<frame.precision)-1)
               });
               frame.componentIds[componentId] = l - 1;
               offset += 3;
@@ -786,6 +788,8 @@ var JpegImage = (function jpegImage() {
       this.components = [];
       for (var i = 0; i < frame.components.length; i++) {
         var component = frame.components[i];
+        if ( ! component.quantizationTable && component.quantizationTableId != null )
+            component.quantizationTable = quantizationTables[component.quantizationTableId];
         this.components.push({
           output: buildComponentData(frame, component),
           scaleX: component.h / frame.maxH,
