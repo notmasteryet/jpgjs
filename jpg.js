@@ -550,7 +550,7 @@ var JpegImage = (function jpegImage() {
         for (var i = data.length - 1; i >= 0; i--) {
           arr[i] = data.charCodeAt(i);
         }
-        handleData(data);
+        handleData(arr);
       } else {
         var xhr = new XMLHttpRequest();
         xhr.open("GET", path, true);
