@@ -667,20 +667,22 @@ var JpegImage = (function jpegImage() {
             var quantizationTablesEnd = quantizationTablesLength + offset - 2;
             while (offset < quantizationTablesEnd) {
               var quantizationTableSpec = data[offset++];
-              var tableData = new Int32Array(64);
+              var qId = quantizationTableSpec & 15;
+              if (!quantizationTables[qId]) {
+                quantizationTables[qId] = new Int32Array(64);
+              }
               if ((quantizationTableSpec >> 4) === 0) { // 8 bit values
                 for (j = 0; j < 64; j++) {
                   var z = dctZigZag[j];
-                  tableData[z] = data[offset++];
+                  quantizationTables[qId][z] = data[offset++];
                 }
               } else if ((quantizationTableSpec >> 4) === 1) { //16 bit
                 for (j = 0; j < 64; j++) {
                   var z = dctZigZag[j];
-                  tableData[z] = readUint16();
+                  quantizationTables[qId][z] = readUint16();
                 }
               } else
                 throw "DQT: invalid table spec";
-              quantizationTables[quantizationTableSpec & 15] = tableData;
             }
             break;
 
@@ -708,6 +710,7 @@ var JpegImage = (function jpegImage() {
               if (maxH < h) maxH = h;
               if (maxV < v) maxV = v;
               var qId = data[offset + 2];
+              if (!quantizationTables[qId]) quantizationTables[qId] = new Int32Array(64);
               var l = frame.components.push({
                 h: h,
                 v: v,
