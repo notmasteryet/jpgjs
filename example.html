@@ -4,31 +4,8 @@
 <html>
 <head>
 <script src="jpg.js"></script>
-<script>
-
-function displayImage(canvasId, url) {
-  var j = new JpegImage();
-  j.onload = function() {
-    var c = document.getElementById(canvasId);
-    c.width = j.width;
-    c.height = j.height;
-    var ctx = c.getContext("2d");
-    var d = ctx.getImageData(0,0,j.width,j.height);
-    j.copyToImageData(d);
-    ctx.putImageData(d, 0, 0);
-  };
-  j.load(url);
-}
-
-function loadImages() {
-  displayImage("c1", "j1.jpg");
-  displayImage("c2", "j2.jpg");
-  displayImage("c3", "j3.jpg");
-}
-
-</script>
 </head>
-<body onload="loadImages()">
+<body>
   <table>
     <tr><th>baseline</th><th>progressive</th><th>baseline (gray)</th></tr>
     <tr>
@@ -37,4 +14,121 @@ function loadImages() {
       <td><canvas id="c3"></canvas></td>
     </tr>
   </table>
+  <script>
+    // Simple loading of the JPEG images
+    function displayImage(canvasId, url) {
+      var j = new JpegImage();
+      j.onload = function() {
+        var c = document.getElementById(canvasId);
+        c.width = j.width;
+        c.height = j.height;
+        var ctx = c.getContext("2d");
+        var d = ctx.getImageData(0,0,j.width,j.height);
+        j.copyToImageData(d);
+        ctx.putImageData(d, 0, 0);
+      };
+      j.load(url);
+    }
+
+    displayImage("c1", "images/j1.jpg");
+    displayImage("c2", "images/j2.jpg");
+    displayImage("c3", "images/j3.jpg");
+  </script>
+
+
+  <table>
+    <tr><th>base64</th></tr>
+    <tr>
+      <td><canvas id="c4"></canvas></td>
+    </tr>
+  </table>
+
+  <script>
+    // Loading image as binary data and using data protocole and base64 encoding
+    function loadAsUint8Array(url, callback) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = function () {
+        callback(new Uint8Array(xhr.response));
+      };
+      xhr.send();
+    }
+
+    function loadAsDataURL(url, callback) {
+      loadAsUint8Array(url, function (arr) {
+        var s = '';
+        for (var i = 0; i < arr.length; i++) {
+          s += String.fromCharCode(arr[i]);
+        }
+        callback('data:image/jpeg;base64,' + btoa(s));
+      });
+    }
+
+    loadAsDataURL("images/j1.jpg", function (url) {
+      displayImage("c4", url);
+    });
+  </script>
+
+  <table>
+    <tr><th>jpeg</th><th>jbig2</th><th>jpeg 2000</th></tr>
+    <tr>
+      <td><canvas id="c5"></canvas></td>
+      <td><canvas id="c6"></canvas></td>
+      <td><canvas id="c7"></canvas></td>
+    </tr>
+  </table>
+
+  <script>
+    // Directly using PDFjs decoders -- it is experimental and will likely change.
+    function decodeImage(canvasId, encoding, url) {
+      loadAsUint8Array(url, function (encoded) {
+        var numComponents, width, height, decoded, parser;
+        switch (encoding) {
+          case 'jpeg':
+            parser = new JpegDecoder();
+            parser.parse(encoded);
+            width = parser.width;
+            height = parser.height;
+            numComponents = parser.numComponents;
+            decoded = parser.getData(width, height);
+            break;
+          case 'jbig2':
+            parser = new Jbig2Decoder();
+            parser.parse(encoded);
+            width = parser.width;
+            height = parser.height;
+            numComponents = 1;
+            decoded = parser.data;
+            break;
+          case 'jpx':
+            parser = new JpxDecoder();
+            parser.parse(encoded);
+            width = parser.width;
+            height = parser.height;
+            numComponents = parser.componentsCount;
+            decoded = parser.tiles[0].items;
+            break;
+        }
+
+        var canvas = document.getElementById(canvasId);
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext('2d');
+        var imageData = ctx.createImageData(width, height);
+        var imageBytes = imageData.data;
+        for (var i = 0, j = 0, ii = width * height * 4; i < ii; ) {
+          imageBytes[i++] = decoded[j++];
+          imageBytes[i++] = numComponents === 3 ? decoded[j++] : decoded[j - 1];
+          imageBytes[i++] = numComponents === 3 ? decoded[j++] : decoded[j - 1];
+          imageBytes[i++] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+      });
+    }
+
+    decodeImage("c5", "jpeg", "images/j1.jpg");
+    decodeImage("c6", "jbig2", "images/j3.jb2");
+    decodeImage("c7", "jpx", "images/j1.jp2");
+  </script>
 </body></html>

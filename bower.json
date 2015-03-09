@@ -1,0 +1,13 @@
+{
+  "name": "jpgjs",
+  "version": "1.0.0",
+  "keywords": [
+    "jpgjs",
+    "JPEG",
+    "JPG"
+  ],
+  "main": [
+    "jpg.js"
+  ],
+  "ignore": []
+}
