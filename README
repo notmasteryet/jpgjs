@@ -1,3 +1,6 @@
+This is a fork of https://github.com/notmasteryet/jpgjs
+This fork fixes issue #43, modules.export is now correctly defined. 
+
 Simple JPEG/DCT data decoder in JavaScript. Also this project includes JPEG 2000 and JBIG2 decoders.
 
 Example URL:
