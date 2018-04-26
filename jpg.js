@@ -99,15 +99,6 @@ var JpegImage = function jpegImage() {
     return JpegImage;
 }();
 
-if (typeof exports === "function") {
-    module.exports = {
-        JpegImage: JpegImage,
-        JpegDecoder: JpegDecoder,
-        JpxDecoder: JpxDecoder,
-        Jbig2Decoder: Jbig2Decoder
-    };
-}
-
 var PDFJS;
 
 (function(PDFJS) {
@@ -4278,3 +4269,14 @@ var JpegDecoder = PDFJS.JpegImage;
 var JpxDecoder = PDFJS.JpxImage;
 
 var Jbig2Decoder = PDFJS.Jbig2Image;
+
+
+if(typeof exports === "object")
+{
+	module.exports = {
+		JpegImage: JpegImage,
+		JpegDecoder: JpegDecoder,
+		JpxDecoder: JpxDecoder,
+		Jbig2Decoder: Jbig2Decoder
+	};
+}
